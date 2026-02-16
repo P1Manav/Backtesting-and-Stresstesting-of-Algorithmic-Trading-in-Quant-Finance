@@ -1,8 +1,3 @@
-"""
-Metrics Module
-Performance metrics calculation for backtesting results.
-"""
-
 from .performance_metrics import PerformanceMetrics
 from .metrics_calculator import MetricsCalculator
 

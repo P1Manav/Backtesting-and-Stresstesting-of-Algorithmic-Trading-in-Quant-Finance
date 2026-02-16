@@ -1,368 +1,176 @@
-"""
-Model Analyzer Module
-Analyzes PyTorch model structure, input/output dimensions, and model type.
-"""
-
 import torch
 import torch.nn as nn
-from typing import Dict, Any, Optional, Tuple, List, Union
-from enum import Enum
+from pathlib import Path
+from typing import Dict, Any, Optional
 
 
-class ModelType(Enum):
-    """Enumeration of model types."""
-    CLASSIFICATION = "classification"
-    REGRESSION = "regression"
-    POLICY = "policy"  # RL-style policy network
-    UNKNOWN = "unknown"
-
-
-class OutputType(Enum):
-    """Enumeration of model output types."""
-    SIGNALS = "signals"  # Buy/Sell/Hold signals
-    POSITIONS = "positions"  # Position sizes
-    SCORES = "scores"  # Continuous scores
-    PROBABILITIES = "probabilities"  # Class probabilities
-    UNKNOWN = "unknown"
+INPUT_SIZE_TO_FEATURES = {
+    1: ['Close'],
+    2: ['Close', 'Volume'],
+    3: ['Open', 'High', 'Close'],
+    4: ['Open', 'High', 'Low', 'Close'],
+    5: ['Open', 'High', 'Low', 'Close', 'Volume'],
+}
 
 
 class ModelAnalyzer:
-    """
-    Analyzes PyTorch models to understand their structure and behavior.
-    
-    Inspects:
-    - Input tensor dimensions
-    - Output shape (classification / regression / action)
-    - Model architecture
-    - Whether model outputs signals, positions, or continuous scores
-    """
-    
-    def __init__(self, model: nn.Module, device: Optional[torch.device] = None):
-        """
-        Initialize the Model Analyzer.
-        
-        Args:
-            model: PyTorch model to analyze
-            device: Device to use for inference tests
-        """
-        self.model = model
-        self.device = device or next(model.parameters()).device
-        self.model.to(self.device)
-        self.model.eval()
-        
-        self._analysis_results: Dict[str, Any] = {}
-    
-    def analyze(self, 
-                sample_input_shape: Optional[Tuple[int, ...]] = None,
-                num_features: int = 10,
-                sequence_length: int = 30) -> Dict[str, Any]:
-        """
-        Perform comprehensive model analysis.
-        
-        Args:
-            sample_input_shape: Optional tuple specifying input shape
-            num_features: Number of features to test with if shape not provided
-            sequence_length: Sequence length to test with if shape not provided
-            
-        Returns:
-            Dictionary containing analysis results
-        """
-        results = {
-            'model_class': self.model.__class__.__name__,
-            'device': str(self.device),
-            'parameters': self._count_parameters(),
-            'architecture': self._get_architecture_summary(),
-            'layers': self._get_layer_info(),
-            'input_analysis': {},
-            'output_analysis': {},
-            'model_type': ModelType.UNKNOWN.value,
-            'output_type': OutputType.UNKNOWN.value
+
+    def __init__(self, model_path: str):
+        self.model_path = model_path
+        self.model: Optional[nn.Module] = None
+        self.state_dict: Dict[str, torch.Tensor] = {}
+        self.info: Dict[str, Any] = {}
+
+    def analyze(self) -> Dict[str, Any]:
+        """Load the .pt model and return a config dict."""
+        self._load_model()
+        arch = self._detect_architecture()
+        params = self._detect_params(arch)
+
+        input_size = params.get('input_size', 1)
+        features = INPUT_SIZE_TO_FEATURES.get(
+            input_size, [f'feature_{i}' for i in range(input_size)]
+        )
+
+        self.info = {
+            'architecture': arch,
+            'input_size': input_size,
+            'hidden_size': params.get('hidden_size'),
+            'num_layers': params.get('num_layers', 1),
+            'output_size': params.get('output_size', 1),
+            'bidirectional': params.get('bidirectional', False),
+            'feature_columns': features,
+            'total_parameters': sum(t.numel() for t in self.state_dict.values()),
         }
-        
-        # Infer input shape if not provided
-        if sample_input_shape is None:
-            sample_input_shape = self._infer_input_shape(num_features, sequence_length)
-        
-        results['input_analysis'] = self._analyze_input(sample_input_shape)
-        
-        # Perform inference to analyze output
+        return self.info
+
+    def summary(self) -> None:
+        """Print a human-readable summary of what was detected."""
+        if not self.info:
+            self.analyze()
+        i = self.info
+        print(f"\n  Architecture : {i['architecture'].upper()}")
+        print(f"  Input size   : {i['input_size']}  ->  features = {i['feature_columns']}")
+        if i.get('hidden_size'):
+            print(f"  Hidden size  : {i['hidden_size']}")
+        print(f"  Layers       : {i['num_layers']}")
+        print(f"  Output size  : {i['output_size']}")
+        if i['bidirectional']:
+            print(f"  Bidirectional: Yes")
+        print(f"  Parameters   : {i['total_parameters']:,}")
+
+    def _load_model(self):
+        """Load the TorchScript .pt model and extract its state_dict."""
+        p = Path(self.model_path)
+        if not p.exists():
+            raise FileNotFoundError(f"Model file not found: {self.model_path}")
+        if p.suffix != '.pt':
+            raise ValueError(
+                f"Expected a .pt (TorchScript) file, got '{p.suffix}'.\n"
+                f"Only TorchScript (.pt) models are supported."
+            )
+
         try:
-            output_analysis = self._analyze_output(sample_input_shape)
-            results['output_analysis'] = output_analysis
-            
-            # Infer model and output types
-            results['model_type'] = self._infer_model_type(output_analysis).value
-            results['output_type'] = self._infer_output_type(output_analysis).value
-            
+            self.model = torch.jit.load(self.model_path, map_location='cpu')
+            self.model.eval()
+            self.state_dict = self.model.state_dict()
+            print(f"  [OK] Loaded TorchScript model successfully")
         except Exception as e:
-            results['output_analysis'] = {'error': str(e)}
-        
-        self._analysis_results = results
-        return results
-    
-    def _count_parameters(self) -> Dict[str, int]:
-        """Count model parameters."""
-        total = sum(p.numel() for p in self.model.parameters())
-        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        
-        return {
-            'total': total,
-            'trainable': trainable,
-            'non_trainable': total - trainable
-        }
-    
-    def _get_architecture_summary(self) -> str:
-        """Get a string summary of model architecture."""
-        return str(self.model)
-    
-    def _get_layer_info(self) -> List[Dict[str, Any]]:
-        """Get information about each layer."""
-        layers = []
-        
-        for name, module in self.model.named_modules():
-            if name == '':
-                continue
-            
-            layer_info = {
-                'name': name,
-                'type': module.__class__.__name__,
-                'params': sum(p.numel() for p in module.parameters(recurse=False))
-            }
-            
-            # Add layer-specific info
-            if isinstance(module, nn.Linear):
-                layer_info['in_features'] = module.in_features
-                layer_info['out_features'] = module.out_features
-            elif isinstance(module, (nn.LSTM, nn.GRU, nn.RNN)):
-                layer_info['input_size'] = module.input_size
-                layer_info['hidden_size'] = module.hidden_size
-                layer_info['num_layers'] = module.num_layers
-                layer_info['bidirectional'] = module.bidirectional
-            elif isinstance(module, nn.Conv1d):
-                layer_info['in_channels'] = module.in_channels
-                layer_info['out_channels'] = module.out_channels
-                layer_info['kernel_size'] = module.kernel_size
-            
-            layers.append(layer_info)
-        
-        return layers
-    
-    def _infer_input_shape(self, 
-                           num_features: int,
-                           sequence_length: int) -> Tuple[int, ...]:
-        """
-        Infer the expected input shape from the model architecture.
-        
-        Returns:
-            Tuple representing input shape (batch, ...)
-        """
-        # Check first layer to infer input shape
-        first_layer = None
-        for module in self.model.modules():
-            if isinstance(module, (nn.Linear, nn.LSTM, nn.GRU, nn.Conv1d)):
-                first_layer = module
-                break
-        
-        if first_layer is None:
-            return (1, sequence_length, num_features)
-        
-        if isinstance(first_layer, nn.Linear):
-            # Linear layer: (batch, in_features)
-            return (1, first_layer.in_features)
-        elif isinstance(first_layer, (nn.LSTM, nn.GRU, nn.RNN)):
-            # RNN: (batch, seq_len, input_size)
-            return (1, sequence_length, first_layer.input_size)
-        elif isinstance(first_layer, nn.Conv1d):
-            # Conv1d: (batch, in_channels, seq_len)
-            return (1, first_layer.in_channels, sequence_length)
-        
-        return (1, sequence_length, num_features)
-    
-    def _analyze_input(self, input_shape: Tuple[int, ...]) -> Dict[str, Any]:
-        """Analyze model input requirements."""
-        return {
-            'shape': input_shape,
-            'dimensions': len(input_shape),
-            'batch_size': input_shape[0],
-            'feature_dims': input_shape[1:] if len(input_shape) > 1 else None
-        }
-    
-    def _analyze_output(self, input_shape: Tuple[int, ...]) -> Dict[str, Any]:
-        """
-        Analyze model output by performing dummy inference.
-        
-        Args:
-            input_shape: Input shape to use for inference
-            
-        Returns:
-            Dictionary with output analysis
-        """
-        # Create dummy input
-        dummy_input = torch.randn(*input_shape, device=self.device)
-        
-        with torch.no_grad():
-            output = self.model(dummy_input)
-        
-        # Handle different output types
-        if isinstance(output, tuple):
-            # Some models return (output, hidden_state)
-            main_output = output[0]
-            has_hidden = True
-        else:
-            main_output = output
-            has_hidden = False
-        
-        output_shape = tuple(main_output.shape)
-        
-        analysis = {
-            'shape': output_shape,
-            'dimensions': len(output_shape),
-            'has_hidden_state': has_hidden,
-            'output_size': output_shape[-1] if len(output_shape) > 0 else 0,
-            'value_range': {
-                'min': float(main_output.min()),
-                'max': float(main_output.max()),
-                'mean': float(main_output.mean())
-            }
-        }
-        
-        # Check for activation patterns
-        analysis['likely_activation'] = self._detect_activation(main_output)
-        
-        return analysis
-    
-    def _detect_activation(self, output: torch.Tensor) -> str:
-        """Detect the likely output activation function."""
-        min_val = output.min().item()
-        max_val = output.max().item()
-        
-        if 0 <= min_val and max_val <= 1:
-            # Check if sums to 1 (softmax)
-            if output.dim() > 1:
-                sums = output.sum(dim=-1)
-                if torch.allclose(sums, torch.ones_like(sums), atol=0.01):
-                    return 'softmax'
-            return 'sigmoid'
-        elif -1 <= min_val and max_val <= 1:
-            return 'tanh'
-        else:
-            return 'linear/none'
-    
-    def _infer_model_type(self, output_analysis: Dict[str, Any]) -> ModelType:
-        """Infer the type of model based on output analysis."""
-        output_size = output_analysis.get('output_size', 0)
-        activation = output_analysis.get('likely_activation', '')
-        
-        # Classification: softmax output or small discrete output
-        if activation == 'softmax':
-            return ModelType.CLASSIFICATION
-        
-        # RL-style policy: outputs action probabilities or Q-values
-        if output_size in [2, 3, 4]:  # Common action spaces
-            if activation in ['softmax', 'sigmoid']:
-                return ModelType.POLICY
-        
-        # Regression: single continuous output
-        if output_size == 1:
-            return ModelType.REGRESSION
-        
-        # Default to regression for continuous outputs
-        if activation in ['linear/none', 'tanh']:
-            return ModelType.REGRESSION
-        
-        return ModelType.UNKNOWN
-    
-    def _infer_output_type(self, output_analysis: Dict[str, Any]) -> OutputType:
-        """Infer the type of output the model produces."""
-        output_size = output_analysis.get('output_size', 0)
-        activation = output_analysis.get('likely_activation', '')
-        value_range = output_analysis.get('value_range', {})
-        
-        # Trading signals (Buy/Sell/Hold = 3 classes)
-        if output_size == 3 and activation == 'softmax':
-            return OutputType.SIGNALS
-        
-        # Binary signals (Long/Short or Buy/Sell)
-        if output_size == 2 and activation in ['softmax', 'sigmoid']:
-            return OutputType.SIGNALS
-        
-        # Probabilities
-        if activation == 'softmax':
-            return OutputType.PROBABILITIES
-        
-        # Position sizes (typically -1 to 1 range)
-        if activation == 'tanh':
-            return OutputType.POSITIONS
-        
-        # Continuous scores
-        if activation in ['linear/none', 'sigmoid']:
-            return OutputType.SCORES
-        
-        return OutputType.UNKNOWN
-    
-    def get_input_shape(self) -> Optional[Tuple[int, ...]]:
-        """Get the analyzed input shape."""
-        if 'input_analysis' in self._analysis_results:
-            return self._analysis_results['input_analysis'].get('shape')
-        return None
-    
-    def get_output_shape(self) -> Optional[Tuple[int, ...]]:
-        """Get the analyzed output shape."""
-        if 'output_analysis' in self._analysis_results:
-            return self._analysis_results['output_analysis'].get('shape')
-        return None
-    
-    def get_model_type(self) -> str:
-        """Get the inferred model type."""
-        return self._analysis_results.get('model_type', ModelType.UNKNOWN.value)
-    
-    def get_output_type(self) -> str:
-        """Get the inferred output type."""
-        return self._analysis_results.get('output_type', OutputType.UNKNOWN.value)
-    
-    def log_analysis(self) -> None:
-        """Print analysis results to console."""
-        if not self._analysis_results:
-            print("No analysis performed yet. Call analyze() first.")
-            return
-        
-        print("\n" + "="*60)
-        print("MODEL ANALYSIS REPORT")
-        print("="*60)
-        
-        print(f"\nModel Class: {self._analysis_results['model_class']}")
-        print(f"Device: {self._analysis_results['device']}")
-        
-        params = self._analysis_results['parameters']
-        print(f"\nParameters:")
-        print(f"  Total: {params['total']:,}")
-        print(f"  Trainable: {params['trainable']:,}")
-        print(f"  Non-trainable: {params['non_trainable']:,}")
-        
-        input_info = self._analysis_results['input_analysis']
-        print(f"\nInput Analysis:")
-        print(f"  Shape: {input_info.get('shape')}")
-        print(f"  Dimensions: {input_info.get('dimensions')}")
-        
-        output_info = self._analysis_results['output_analysis']
-        if 'error' not in output_info:
-            print(f"\nOutput Analysis:")
-            print(f"  Shape: {output_info.get('shape')}")
-            print(f"  Output Size: {output_info.get('output_size')}")
-            print(f"  Likely Activation: {output_info.get('likely_activation')}")
-            print(f"  Value Range: {output_info.get('value_range')}")
-        
-        print(f"\nInferred Model Type: {self._analysis_results['model_type']}")
-        print(f"Inferred Output Type: {self._analysis_results['output_type']}")
-        print("="*60 + "\n")
-    
-    def get_analysis_summary(self) -> Dict[str, Any]:
-        """Get a summary of the analysis results."""
-        return {
-            'model_class': self._analysis_results.get('model_class'),
-            'parameters': self._analysis_results.get('parameters', {}).get('total', 0),
-            'input_shape': self.get_input_shape(),
-            'output_shape': self.get_output_shape(),
-            'model_type': self.get_model_type(),
-            'output_type': self.get_output_type()
-        }
+            raise RuntimeError(
+                f"Failed to load TorchScript model from '{self.model_path}'.\n"
+                f"Ensure the file was saved with torch.jit.save().\n"
+                f"Error: {e}"
+            )
+
+    def _detect_architecture(self) -> str:
+        """Detect architecture from state_dict key patterns."""
+        keys = set(self.state_dict.keys())
+
+        if 'lstm.weight_ih_l0' in keys or 'lstm.weight_hh_l0' in keys:
+            if 'lstm.weight_ih_l0_reverse' in keys:
+                return 'bilstm'
+            return 'lstm'
+
+        if 'gru.weight_ih_l0' in keys or 'gru.weight_hh_l0' in keys:
+            return 'gru'
+
+        if 'rnn.weight_ih_l0' in keys or 'rnn.weight_hh_l0' in keys:
+            return 'rnn'
+
+        if any('transformer' in k for k in keys) or any('encoder' in k for k in keys):
+            return 'transformer'
+
+        if any('conv' in k for k in keys):
+            return 'cnn'
+
+        if any('network' in k or 'fc1' in k or 'linear' in k for k in keys):
+            return 'mlp'
+
+        if 'fc.weight' in keys:
+            return 'lstm'
+
+        raise RuntimeError(
+            f"Could not auto-detect architecture from keys: {sorted(keys)[:20]}"
+        )
+
+    def _detect_params(self, arch: str) -> Dict[str, Any]:
+        """Extract dimensions from weight tensor shapes."""
+        params: Dict[str, Any] = {}
+        sd = self.state_dict
+
+        if arch in ('lstm', 'gru', 'rnn', 'bilstm'):
+            rnn_name = 'lstm' if arch == 'bilstm' else arch
+            ih_key = f'{rnn_name}.weight_ih_l0'
+
+            if ih_key in sd:
+                gate_mult = {'lstm': 4, 'gru': 3, 'rnn': 1, 'bilstm': 4}[arch]
+                ih_shape = sd[ih_key].shape
+                params['input_size'] = ih_shape[1]
+                params['hidden_size'] = ih_shape[0] // gate_mult
+
+            # Count layers
+            layer_keys = [k for k in sd if f'{rnn_name}.weight_hh_l' in k and 'reverse' not in k]
+            params['num_layers'] = len(layer_keys) if layer_keys else 1
+
+            # Bidirectional
+            params['bidirectional'] = arch == 'bilstm'
+
+            # Output size from final fc
+            if 'fc.weight' in sd:
+                params['output_size'] = sd['fc.weight'].shape[0]
+
+        elif arch == 'cnn':
+            if 'conv1.weight' in sd:
+                params['input_size'] = sd['conv1.weight'].shape[1]
+            fc_keys = sorted([k for k in sd if k.startswith('fc') and 'weight' in k])
+            if fc_keys:
+                params['output_size'] = sd[fc_keys[-1]].shape[0]
+
+        elif arch == 'transformer':
+            proj_key = None
+            for k in sd:
+                if 'input_projection' in k and 'weight' in k:
+                    proj_key = k
+                    break
+            if proj_key:
+                params['input_size'] = sd[proj_key].shape[1]
+            if 'fc.weight' in sd:
+                params['output_size'] = sd['fc.weight'].shape[0]
+
+        elif arch == 'mlp':
+            first_linear = None
+            for k in sorted(sd.keys()):
+                if 'weight' in k:
+                    first_linear = k
+                    break
+            if first_linear:
+                params['input_size'] = sd[first_linear].shape[1]
+            last_linear = None
+            for k in sorted(sd.keys(), reverse=True):
+                if 'weight' in k:
+                    last_linear = k
+                    break
+            if last_linear:
+                params['output_size'] = sd[last_linear].shape[0]
+
+        return params

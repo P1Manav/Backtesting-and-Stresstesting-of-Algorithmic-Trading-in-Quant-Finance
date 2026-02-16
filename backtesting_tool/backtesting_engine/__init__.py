@@ -1,11 +1,6 @@
-"""
-Backtesting Engine Module
-Core backtesting engine for historical simulation and evaluation.
-"""
-
-from .backtesting_engine import BacktestingEngine
+from .backtesting_config import BacktestConfig
 from .portfolio import Portfolio
 from .trade_executor import TradeExecutor
-from .backtesting_config import BacktestingConfig
+from .backtesting_engine import BacktestingEngine
 
-__all__ = ['BacktestingEngine', 'Portfolio', 'TradeExecutor', 'BacktestingConfig']
+__all__ = ['BacktestConfig', 'Portfolio', 'TradeExecutor', 'BacktestingEngine']

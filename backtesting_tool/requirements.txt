@@ -1,23 +1,17 @@
-# Backtesting Tool Dependencies
+# Universal Backtesting Tool – Dependencies
 
 # Core
 numpy>=1.21.0
 pandas>=1.3.0
 
-# Deep Learning
+# Deep Learning (forward-pass only)
 torch>=1.9.0
 
-# Machine Learning (for preprocessing)
+# Preprocessing (MinMaxScaler)
 scikit-learn>=0.24.0
 
 # Visualization
 matplotlib>=3.4.0
-seaborn>=0.11.0
-
-# Statistics
-scipy>=1.7.0
-
-# Excel export (optional)
 openpyxl>=3.0.0
 
 # Kaggle API (optional, for dataset fetching)
