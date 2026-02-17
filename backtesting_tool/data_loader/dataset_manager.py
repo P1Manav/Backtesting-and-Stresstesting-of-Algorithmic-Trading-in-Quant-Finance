@@ -58,11 +58,32 @@ class DatasetManager:
         else:
             print("  [WARNING] No date column found, using row index")
 
-        if 'Name' in df.columns and df['Name'].nunique() > 1:
-            stock_counts = df['Name'].value_counts()
-            selected = stock_counts.index[0]
-            df = df[df['Name'] == selected].copy()
-            print(f"  Multi-stock dataset: selected '{selected}' ({len(df)} rows)")
+        # Detect the stock-identifier column (common names)
+        stock_col = None
+        for candidate in ['Name', 'Ticker', 'Symbol', 'Stock', 'Instrument']:
+            if candidate in df.columns and df[candidate].nunique() > 1:
+                stock_col = candidate
+                break
+
+        if stock_col is not None:
+            unique_stocks = df[stock_col].unique()
+            print(f"\n  Multi-stock dataset detected ({len(unique_stocks)} stocks in '{stock_col}' column):")
+            for i, s in enumerate(unique_stocks, 1):
+                count = len(df[df[stock_col] == s])
+                print(f"    {i}. {s}  ({count} rows)")
+
+            while True:
+                try:
+                    choice = int(input(f"  Select stock (1-{len(unique_stocks)}): ").strip())
+                    if 1 <= choice <= len(unique_stocks):
+                        break
+                except ValueError:
+                    pass
+                print(f"  Enter a number between 1 and {len(unique_stocks)}")
+
+            selected = unique_stocks[choice - 1]
+            df = df[df[stock_col] == selected].copy()
+            print(f"  Selected '{selected}' ({len(df)} rows)")
 
         self.validator.validate(df)
 
