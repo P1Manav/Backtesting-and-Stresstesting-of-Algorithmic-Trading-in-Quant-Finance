@@ -38,13 +38,19 @@ class DatasetManager:
             })
         return datasets
 
-    def load_dataset(self, path: str) -> pd.DataFrame:
-        """Load a CSV dataset, standardize columns, parse dates, and validate."""
+    def load_dataset(self, path: str) -> Dict[str, pd.DataFrame]:
+        """Load a CSV dataset and return ``{ticker: DataFrame}``.
+
+        * Single-stock files produce a one-entry dict (key = ``'STOCK'``).
+        * Multi-stock files let the user choose **all** or **specific**
+          tickers for portfolio backtesting.
+        """
         print(f"\n  Loading: {Path(path).name}")
         df = pd.read_csv(path)
 
         df.columns = [c.strip().capitalize() for c in df.columns]
 
+        # ---- Parse dates ---------------------------------------------------
         date_col = None
         for candidate in ['Date', 'Timestamp', 'Datetime', 'Time']:
             if candidate in df.columns:
@@ -58,34 +64,109 @@ class DatasetManager:
         else:
             print("  [WARNING] No date column found, using row index")
 
-        # Detect the stock-identifier column (common names)
+        # ---- Detect stock-identifier column --------------------------------
         stock_col = None
         for candidate in ['Name', 'Ticker', 'Symbol', 'Stock', 'Instrument']:
             if candidate in df.columns and df[candidate].nunique() > 1:
                 stock_col = candidate
                 break
 
+        MAX_DISPLAY = 30       # Show individual rows only for small sets
+        MAX_ALL_STOCKS = 50    # "All" option only when count is manageable
+
         if stock_col is not None:
-            unique_stocks = df[stock_col].unique()
-            print(f"\n  Multi-stock dataset detected ({len(unique_stocks)} stocks in '{stock_col}' column):")
-            for i, s in enumerate(unique_stocks, 1):
-                count = len(df[df[stock_col] == s])
-                print(f"    {i}. {s}  ({count} rows)")
+            unique_stocks = sorted(df[stock_col].unique())
+            n = len(unique_stocks)
+            print(f"\n  Multi-stock dataset detected ({n} stocks in '{stock_col}' column):")
+
+            if n <= MAX_DISPLAY:
+                for i, s in enumerate(unique_stocks, 1):
+                    count = len(df[df[stock_col] == s])
+                    print(f"    {i}. {s}  ({count} rows)")
+            else:
+                # Show a compact summary for very large stock lists
+                preview = unique_stocks[:10]
+                tail = unique_stocks[-5:]
+                for i, s in enumerate(preview, 1):
+                    count = len(df[df[stock_col] == s])
+                    print(f"    {i}. {s}  ({count} rows)")
+                print(f"    ... ({n - 15} more stocks) ...")
+                for i, s in enumerate(tail, n - 4):
+                    count = len(df[df[stock_col] == s])
+                    print(f"    {i}. {s}  ({count} rows)")
+
+            print(f"\n  Portfolio options:")
+            print(f"    A  — Select ALL {n} stocks for portfolio backtesting", end="")
+            if n > MAX_ALL_STOCKS:
+                print(f"  (⚠ {n} stocks — may be slow)")
+            else:
+                print()
+            print(f"    S  — Select SPECIFIC stocks for portfolio backtesting")
+            print(f"    T  — Select TOP N stocks by data availability")
+
+            valid_choices = {'A', 'S', 'T'}
 
             while True:
-                try:
-                    choice = int(input(f"  Select stock (1-{len(unique_stocks)}): ").strip())
-                    if 1 <= choice <= len(unique_stocks):
-                        break
-                except ValueError:
-                    pass
-                print(f"  Enter a number between 1 and {len(unique_stocks)}")
+                choice = input("  Enter choice (A/S/T): ").strip().upper()
+                if choice in valid_choices:
+                    break
+                print(f"  Enter one of: A, S, T")
 
-            selected = unique_stocks[choice - 1]
-            df = df[df[stock_col] == selected].copy()
-            print(f"  Selected '{selected}' ({len(df)} rows)")
+            if choice == 'A':
+                selected = list(unique_stocks)
+            elif choice == 'T':
+                top_n = 0
+                while top_n < 1:
+                    try:
+                        top_n = int(input(f"  How many top stocks? (2-{min(n, MAX_ALL_STOCKS)}): ").strip())
+                        top_n = min(top_n, min(n, MAX_ALL_STOCKS))
+                    except ValueError:
+                        pass
+                # Rank by number of data rows (most data first)
+                stock_counts = df[stock_col].value_counts()
+                top_tickers = stock_counts.head(top_n).index.tolist()
+                print(f"  Top {top_n} stocks by data availability:")
+                for i, t in enumerate(top_tickers, 1):
+                    print(f"    {i}. {t}  ({stock_counts[t]} rows)")
+                selected = top_tickers
+            else:  # S — specific
+                if n > MAX_DISPLAY:
+                    print(f"  Enter stock TICKER SYMBOLS separated by commas (e.g. AAPL,MSFT,GOOGL):")
+                    while True:
+                        raw = input("  > ").strip().upper()
+                        picks = [s.strip() for s in raw.split(',') if s.strip()]
+                        invalid = [s for s in picks if s not in unique_stocks]
+                        if picks and not invalid:
+                            selected = picks
+                            break
+                        if invalid:
+                            print(f"  Invalid tickers: {invalid}. Try again.")
+                        else:
+                            print("  Enter at least one ticker.")
+                else:
+                    print(f"  Enter stock numbers separated by commas (e.g. 1,3,5):")
+                    while True:
+                        try:
+                            indices = [int(x.strip()) for x in input("  > ").split(',')]
+                            if all(1 <= idx <= n for idx in indices) and len(indices) > 0:
+                                selected = [unique_stocks[idx - 1] for idx in indices]
+                                break
+                        except ValueError:
+                            pass
+                        print(f"  Enter valid numbers between 1 and {n}, separated by commas")
 
+            print(f"\n  Loading {len(selected)} stocks ...")
+            stock_dfs: Dict[str, pd.DataFrame] = {}
+            for t in selected:
+                sub = df[df[stock_col] == t].copy()
+                sub = sub.drop(columns=[stock_col], errors='ignore')
+                self.validator.validate(sub)
+                stock_dfs[t] = sub
+                print(f"  [OK] {t}: {len(sub)} rows  |  {sub.index[0]} -> {sub.index[-1]}")
+
+            return stock_dfs
+
+        # ---- Single-stock dataset ------------------------------------------
         self.validator.validate(df)
-
         print(f"  [OK] {len(df)} rows  |  {df.index[0]} -> {df.index[-1]}")
-        return df
+        return {'STOCK': df}

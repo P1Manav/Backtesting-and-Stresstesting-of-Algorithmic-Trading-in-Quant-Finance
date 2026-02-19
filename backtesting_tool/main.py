@@ -10,7 +10,7 @@ import pandas as pd
 
 from data_loader import DatasetManager
 from model_loader import UniversalModelLoader
-from model_interface import PredictionController, FeatureConverter, ActionMapper
+from model_interface import PredictionController, ActionMapper
 from backtesting_engine import BacktestConfig, BacktestingEngine
 from metrics import MetricsCalculator
 from visualization import BacktestVisualizer, ReportGenerator
@@ -152,7 +152,10 @@ def main():
     print("DATA LOADING")
     print("=" * 60)
     dm = DatasetManager()
-    df = dm.load_dataset(dataset_path)
+    stock_data = dm.load_dataset(dataset_path)   # Dict[str, DataFrame]
+
+    tickers = list(stock_data.keys())
+    print(f"\n  Portfolio stocks: {', '.join(tickers)} ({len(tickers)} total)")
 
     print(f"\n{'=' * 60}")
     print("MODEL LOADING  (TorchScript .pt — architecture embedded)")
@@ -166,10 +169,6 @@ def main():
     print(f"\n  Features used  : {feature_columns}")
     print(f"  Device         : {device}")
 
-    converter = FeatureConverter(
-        feature_columns=feature_columns,
-        sequence_length=config.sequence_length,
-    )
     predictor = PredictionController(model, device)
     mapper = ActionMapper(strategy=config.strategy,
                           threshold_pct=config.threshold_pct)
@@ -177,8 +176,8 @@ def main():
     print(f"\n{'=' * 60}")
     print("BACKTESTING SIMULATION")
     print("=" * 60)
-    engine = BacktestingEngine(config, predictor, converter, mapper)
-    results = engine.run(df)
+    engine = BacktestingEngine(config, predictor, feature_columns, mapper)
+    results = engine.run(stock_data)
 
     print(f"\n{'=' * 60}")
     print("PERFORMANCE METRICS")
