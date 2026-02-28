@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from .model_analyzer import ModelAnalyzer
 
-
 class UniversalModelLoader:
 
     def __init__(self, device: Optional[str] = None):
@@ -13,8 +12,8 @@ class UniversalModelLoader:
         else:
             self.device = torch.device(device)
 
+    # Load TorchScript .pt model and return (model, info_dict).
     def load(self, model_path: str) -> tuple:
-        """Load TorchScript .pt model and return (model, info_dict)."""
         p = Path(model_path)
         if not p.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")

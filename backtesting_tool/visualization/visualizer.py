@@ -8,7 +8,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-
 class BacktestVisualizer:
 
     def __init__(self, save_dir: str):
@@ -23,8 +22,8 @@ class BacktestVisualizer:
             except Exception:
                 pass
 
+    # Generate and save all charts.
     def generate_all(self, results: Dict[str, Any]) -> None:
-        """Generate and save all charts."""
         self._plot_equity_curve(results)
         self._plot_predictions(results)
         self._plot_drawdown(results)
@@ -36,7 +35,6 @@ class BacktestVisualizer:
 
         print(f"\n  [OK] Charts saved to: {self.save_dir}")
 
-    # ---- Aggregate equity curve ----------------------------------------
     def _plot_equity_curve(self, results: Dict[str, Any]):
         dates = pd.to_datetime(results['dates'])
         values = results['portfolio_values']
@@ -54,7 +52,6 @@ class BacktestVisualizer:
         fig.savefig(self.save_dir / 'equity_curve.png', dpi=300, bbox_inches='tight')
         plt.close(fig)
 
-    # ---- Per-stock actual vs predicted ----------------------------------
     def _plot_predictions(self, results: Dict[str, Any]):
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])
@@ -106,7 +103,6 @@ class BacktestVisualizer:
                         bbox_inches='tight')
             plt.close(fig)
 
-    # ---- Portfolio drawdown --------------------------------------------
     def _plot_drawdown(self, results: Dict[str, Any]):
         dates = pd.to_datetime(results['dates'])
         pv = np.array(results['portfolio_values'])
@@ -124,7 +120,6 @@ class BacktestVisualizer:
         fig.savefig(self.save_dir / 'drawdown.png', dpi=300, bbox_inches='tight')
         plt.close(fig)
 
-    # ---- Portfolio allocation stacked area (multi-stock only) ----------
     def _plot_allocation(self, results: Dict[str, Any]):
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])
@@ -167,7 +162,6 @@ class BacktestVisualizer:
                     bbox_inches='tight')
         plt.close(fig)
 
-    # ---- Normalized price comparison (multi-stock only) ----------------
     def _plot_normalized_prices(self, results: Dict[str, Any]):
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])

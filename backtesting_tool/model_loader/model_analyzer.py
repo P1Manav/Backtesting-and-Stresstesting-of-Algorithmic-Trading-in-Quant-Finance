@@ -3,7 +3,6 @@ import torch.nn as nn
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-
 INPUT_SIZE_TO_FEATURES = {
     1: ['Close'],
     2: ['Close', 'Volume'],
@@ -11,7 +10,6 @@ INPUT_SIZE_TO_FEATURES = {
     4: ['Open', 'High', 'Low', 'Close'],
     5: ['Open', 'High', 'Low', 'Close', 'Volume'],
 }
-
 
 class ModelAnalyzer:
 
@@ -21,8 +19,8 @@ class ModelAnalyzer:
         self.state_dict: Dict[str, torch.Tensor] = {}
         self.info: Dict[str, Any] = {}
 
+    # Load the .pt model and return a config dict.
     def analyze(self) -> Dict[str, Any]:
-        """Load the .pt model and return a config dict."""
         self._load_model()
         arch = self._detect_architecture()
         params = self._detect_params(arch)
@@ -44,8 +42,8 @@ class ModelAnalyzer:
         }
         return self.info
 
+    # Print a human-readable summary of what was detected.
     def summary(self) -> None:
-        """Print a human-readable summary of what was detected."""
         if not self.info:
             self.analyze()
         i = self.info
@@ -59,8 +57,8 @@ class ModelAnalyzer:
             print(f"  Bidirectional: Yes")
         print(f"  Parameters   : {i['total_parameters']:,}")
 
+    # Load the TorchScript .pt model and extract its state_dict.
     def _load_model(self):
-        """Load the TorchScript .pt model and extract its state_dict."""
         p = Path(self.model_path)
         if not p.exists():
             raise FileNotFoundError(f"Model file not found: {self.model_path}")
@@ -82,8 +80,8 @@ class ModelAnalyzer:
                 f"Error: {e}"
             )
 
+    # Detect architecture from state_dict key patterns.
     def _detect_architecture(self) -> str:
-        """Detect architecture from state_dict key patterns."""
         keys = set(self.state_dict.keys())
 
         if 'lstm.weight_ih_l0' in keys or 'lstm.weight_hh_l0' in keys:
@@ -113,8 +111,8 @@ class ModelAnalyzer:
             f"Could not auto-detect architecture from keys: {sorted(keys)[:20]}"
         )
 
+    # Extract dimensions from weight tensor shapes.
     def _detect_params(self, arch: str) -> Dict[str, Any]:
-        """Extract dimensions from weight tensor shapes."""
         params: Dict[str, Any] = {}
         sd = self.state_dict
 
@@ -128,14 +126,11 @@ class ModelAnalyzer:
                 params['input_size'] = ih_shape[1]
                 params['hidden_size'] = ih_shape[0] // gate_mult
 
-            # Count layers
             layer_keys = [k for k in sd if f'{rnn_name}.weight_hh_l' in k and 'reverse' not in k]
             params['num_layers'] = len(layer_keys) if layer_keys else 1
 
-            # Bidirectional
             params['bidirectional'] = arch == 'bilstm'
 
-            # Output size from final fc
             if 'fc.weight' in sd:
                 params['output_size'] = sd['fc.weight'].shape[0]
 

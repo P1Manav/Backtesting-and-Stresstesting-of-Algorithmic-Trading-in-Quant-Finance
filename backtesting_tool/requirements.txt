@@ -14,5 +14,8 @@ scikit-learn>=0.24.0
 matplotlib>=3.4.0
 openpyxl>=3.0.0
 
+# Statistical tests (Kupiec, Christoffersen)
+scipy>=1.7.0
+
 # Kaggle API (optional, for dataset fetching)
 kaggle>=1.5.0

@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from .data_validator import DataValidator
 
-
 class DatasetManager:
 
     def __init__(self, data_root: Optional[str] = None):
@@ -13,16 +12,16 @@ class DatasetManager:
             self.data_root = Path(data_root)
         self.validator = DataValidator()
 
+    # List available dataset categories.
     def list_categories(self) -> List[str]:
-        """List available dataset categories."""
         categories = []
         for d in sorted(self.data_root.iterdir()):
             if d.is_dir():
                 categories.append(d.name)
         return categories
 
+    # List CSV datasets in a given category folder.
     def list_datasets(self, category: str) -> List[Dict[str, Any]]:
-        """List CSV datasets in a given category folder."""
         category_path = self.data_root / category
         if not category_path.exists():
             return []
@@ -38,19 +37,13 @@ class DatasetManager:
             })
         return datasets
 
+    # Load a CSV dataset and return ``{ticker: DataFrame}``.
     def load_dataset(self, path: str) -> Dict[str, pd.DataFrame]:
-        """Load a CSV dataset and return ``{ticker: DataFrame}``.
-
-        * Single-stock files produce a one-entry dict (key = ``'STOCK'``).
-        * Multi-stock files let the user choose **all** or **specific**
-          tickers for portfolio backtesting.
-        """
         print(f"\n  Loading: {Path(path).name}")
         df = pd.read_csv(path)
 
         df.columns = [c.strip().capitalize() for c in df.columns]
 
-        # ---- Parse dates ---------------------------------------------------
         date_col = None
         for candidate in ['Date', 'Timestamp', 'Datetime', 'Time']:
             if candidate in df.columns:
@@ -64,15 +57,14 @@ class DatasetManager:
         else:
             print("  [WARNING] No date column found, using row index")
 
-        # ---- Detect stock-identifier column --------------------------------
         stock_col = None
         for candidate in ['Name', 'Ticker', 'Symbol', 'Stock', 'Instrument']:
             if candidate in df.columns and df[candidate].nunique() > 1:
                 stock_col = candidate
                 break
 
-        MAX_DISPLAY = 30       # Show individual rows only for small sets
-        MAX_ALL_STOCKS = 50    # "All" option only when count is manageable
+        MAX_DISPLAY = 30
+        MAX_ALL_STOCKS = 50
 
         if stock_col is not None:
             unique_stocks = sorted(df[stock_col].unique())
@@ -84,7 +76,6 @@ class DatasetManager:
                     count = len(df[df[stock_col] == s])
                     print(f"    {i}. {s}  ({count} rows)")
             else:
-                # Show a compact summary for very large stock lists
                 preview = unique_stocks[:10]
                 tail = unique_stocks[-5:]
                 for i, s in enumerate(preview, 1):
@@ -122,14 +113,13 @@ class DatasetManager:
                         top_n = min(top_n, min(n, MAX_ALL_STOCKS))
                     except ValueError:
                         pass
-                # Rank by number of data rows (most data first)
                 stock_counts = df[stock_col].value_counts()
                 top_tickers = stock_counts.head(top_n).index.tolist()
                 print(f"  Top {top_n} stocks by data availability:")
                 for i, t in enumerate(top_tickers, 1):
                     print(f"    {i}. {t}  ({stock_counts[t]} rows)")
                 selected = top_tickers
-            else:  # S — specific
+            else:
                 if n > MAX_DISPLAY:
                     print(f"  Enter stock TICKER SYMBOLS separated by commas (e.g. AAPL,MSFT,GOOGL):")
                     while True:
@@ -166,7 +156,6 @@ class DatasetManager:
 
             return stock_dfs
 
-        # ---- Single-stock dataset ------------------------------------------
         self.validator.validate(df)
         print(f"  [OK] {len(df)} rows  |  {df.index[0]} -> {df.index[-1]}")
         return {'STOCK': df}

@@ -1,7 +1,6 @@
 import pandas as pd
 from typing import List
 
-
 class DataValidator:
 
     REQUIRED_COLUMNS = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -10,8 +9,8 @@ class DataValidator:
     def __init__(self):
         self.warnings: List[str] = []
 
+    # Validate DataFrame has required OHLCV columns and reasonable values.
     def validate(self, df: pd.DataFrame) -> bool:
-        """Validate DataFrame has required OHLCV columns and reasonable values."""
         self.warnings = []
 
         missing = [c for c in self.REQUIRED_COLUMNS if c not in df.columns]

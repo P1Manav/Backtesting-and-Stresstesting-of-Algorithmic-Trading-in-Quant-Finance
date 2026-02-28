@@ -8,9 +8,7 @@ from model_interface.prediction_controller import PredictionController
 from model_interface.feature_converter import FeatureConverter
 from model_interface.action_mapper import ActionMapper
 
-
 class BacktestingEngine:
-    """Runs a multi-stock portfolio backtest using a single predictive model."""
 
     def __init__(self, config: BacktestConfig,
                  predictor: PredictionController,
@@ -21,31 +19,16 @@ class BacktestingEngine:
         self.feature_columns = feature_columns
         self.mapper = action_mapper
 
-    # ------------------------------------------------------------------
+    # Run backtest over one or more stocks.
     def run(self, stock_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
-        """Run backtest over one or more stocks.
-
-        Args:
-            stock_data: ``{ticker: DataFrame}`` — each DataFrame has a
-                        DatetimeIndex and at least an OHLCV set of columns.
-
-        Returns:
-            Results dict with aggregate portfolio values *and* per-stock
-            price / prediction / position histories.
-        """
         tickers = list(stock_data.keys())
         seq_len = self.config.sequence_length
 
-        # --- Align all stocks to common trading dates ------------------
-        # Start with the dates from the stock that has the most data,
-        # then iteratively keep only stocks whose overlap is large enough.
         all_dates = {t: set(stock_data[t].index) for t in tickers}
 
-        # Use the ticker with the most data as the reference
         ref_ticker = max(tickers, key=lambda t: len(all_dates[t]))
         common_dates = all_dates[ref_ticker]
 
-        # Iteratively add stocks that share enough dates
         kept = [ref_ticker]
         dropped = []
         for t in tickers:
@@ -86,14 +69,12 @@ class BacktestingEngine:
             t: stock_data[t].loc[common_idx] for t in tickers
         }
 
-        # --- One FeatureConverter (scaler) per stock -------------------
         converters: Dict[str, FeatureConverter] = {}
         for t in tickers:
             conv = FeatureConverter(self.feature_columns, seq_len)
             conv.fit(aligned[t])
             converters[t] = conv
 
-        # --- Prepare results container ---------------------------------
         results: Dict[str, Any] = {
             'dates': [],
             'portfolio_values': [],
@@ -109,7 +90,6 @@ class BacktestingEngine:
             },
         }
 
-        # --- Print simulation header -----------------------------------
         print(f"\n  Stocks          : {', '.join(tickers)} ({n_stocks} stock{'s' if n_stocks > 1 else ''})")
         print(f"  Initial capital : ${self.config.initial_capital:,.2f}")
         if n_stocks > 1:
@@ -123,14 +103,12 @@ class BacktestingEngine:
         total_steps = len(common_dates) - seq_len
         report_interval = max(1, total_steps // 10)
 
-        # --- Main simulation loop --------------------------------------
         for step, i in enumerate(range(seq_len, len(common_dates))):
             current_date = common_dates[i]
             current_prices: Dict[str, float] = {}
             actions: Dict[str, str] = {}
             predicted_prices: Dict[str, float] = {}
 
-            # Phase 1 — Predict for every stock
             for t in tickers:
                 df_t = aligned[t]
                 current_prices[t] = float(df_t.iloc[i]['Close'])
@@ -147,12 +125,10 @@ class BacktestingEngine:
                     predicted_prices[t], current_prices[t],
                     portfolio.positions[t])
 
-            # Phase 2 — Execute SELLs first (free up cash)
             for t in tickers:
                 if actions[t] == 'SELL':
                     executor.execute('SELL', t, current_prices[t], date=current_date)
 
-            # Phase 3 — Execute BUYs with equal budget split
             buy_tickers = [t for t in tickers if actions[t] == 'BUY']
             if buy_tickers:
                 budget_each = portfolio.cash / len(buy_tickers)
@@ -160,7 +136,6 @@ class BacktestingEngine:
                     executor.execute('BUY', t, current_prices[t],
                                      date=current_date, budget=budget_each)
 
-            # Record results
             port_val = portfolio.value(current_prices)
             results['dates'].append(current_date)
             results['portfolio_values'].append(port_val)
@@ -173,12 +148,10 @@ class BacktestingEngine:
                 results['per_stock'][t]['positions'].append(portfolio.positions[t])
                 results['per_stock'][t]['shares'].append(portfolio.shares[t])
 
-            # Progress report
             if (step + 1) % report_interval == 0 or step == total_steps - 1:
                 pct = (step + 1) / total_steps * 100
                 print(f"    [{pct:5.1f}%]  Day {i}  |  Portfolio: ${port_val:,.2f}")
 
-        # --- Final summary ---------------------------------------------
         results['trades'] = executor.trade_log
 
         final = portfolio.value(current_prices)
