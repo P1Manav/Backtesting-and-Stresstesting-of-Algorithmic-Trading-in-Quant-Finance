@@ -1,3 +1,5 @@
+"""Module: statistical_visualizer.py"""
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -16,8 +18,10 @@ _CL_COLORS = {
 _CL_MARKERS = {0.90: 'v', 0.95: 'x', 0.99: 's'}
 
 class StatisticalVisualizer:
+    """StatisticalVisualizer: implementation"""
 
     def __init__(self, save_dir: str):
+    """Initialize instance"""
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -28,8 +32,8 @@ class StatisticalVisualizer:
             except Exception:
                 pass
 
-    # Generate all statistical backtesting charts.
     def generate_all(self, backtest_results: Dict[str, Any],
+    """Generate output"""
                      stat_results: Dict[str, Any]) -> None:
         self._plot_var_breaches(backtest_results, stat_results)
         self._plot_violation_timeline(backtest_results, stat_results)
@@ -38,6 +42,7 @@ class StatisticalVisualizer:
         print(f"  [OK] Statistical charts saved to: {self.save_dir}")
 
     def _plot_var_breaches(self, backtest_results: Dict[str, Any],
+    """Generate plots"""
                            stat_results: Dict[str, Any]):
         returns = stat_results['_returns']
         confidence_levels = stat_results['confidence_levels']
@@ -88,6 +93,7 @@ class StatisticalVisualizer:
         plt.close(fig)
 
     def _plot_violation_timeline(self, backtest_results: Dict[str, Any],
+    """Generate plots"""
                                  stat_results: Dict[str, Any]):
         confidence_levels = stat_results['confidence_levels']
         dates = pd.to_datetime(backtest_results['dates'][1:])
@@ -146,6 +152,7 @@ class StatisticalVisualizer:
         plt.close(fig)
 
     def _plot_benchmark_comparison(self, backtest_results: Dict[str, Any],
+    """Generate plots"""
                                     stat_results: Dict[str, Any]):
         bench = stat_results['benchmark_comparison']
         benchmark_values = bench['_benchmark_values']
@@ -192,6 +199,7 @@ class StatisticalVisualizer:
         plt.close(fig)
 
     def _plot_test_summary(self, stat_results: Dict[str, Any]):
+    """Generate plots"""
         confidence_levels = stat_results['confidence_levels']
         n_levels = len(confidence_levels)
 
@@ -258,3 +266,4 @@ class StatisticalVisualizer:
         fig.savefig(self.save_dir / 'statistical_test_summary.png', dpi=300,
                     bbox_inches='tight')
         plt.close(fig)
+

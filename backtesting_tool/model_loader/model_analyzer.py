@@ -1,3 +1,4 @@
+"""Analyze TorchScript model architecture and parameters"""
 import torch
 import torch.nn as nn
 from pathlib import Path
@@ -12,15 +13,17 @@ INPUT_SIZE_TO_FEATURES = {
 }
 
 class ModelAnalyzer:
+    """Analyze model architecture from TorchScript file"""
 
     def __init__(self, model_path: str):
+        """Initialize analyzer"""
         self.model_path = model_path
         self.model: Optional[nn.Module] = None
         self.state_dict: Dict[str, torch.Tensor] = {}
         self.info: Dict[str, Any] = {}
 
-    # Load the .pt model and return a config dict.
     def analyze(self) -> Dict[str, Any]:
+        """Analyze model and return architecture info"""
         self._load_model()
         arch = self._detect_architecture()
         params = self._detect_params(arch)
@@ -42,8 +45,8 @@ class ModelAnalyzer:
         }
         return self.info
 
-    # Print a human-readable summary of what was detected.
     def summary(self) -> None:
+        """Print model summary"""
         if not self.info:
             self.analyze()
         i = self.info
@@ -57,8 +60,8 @@ class ModelAnalyzer:
             print(f"  Bidirectional: Yes")
         print(f"  Parameters   : {i['total_parameters']:,}")
 
-    # Load the TorchScript .pt model and extract its state_dict.
     def _load_model(self):
+        """Load TorchScript model from path"""
         p = Path(self.model_path)
         if not p.exists():
             raise FileNotFoundError(f"Model file not found: {self.model_path}")
@@ -80,8 +83,8 @@ class ModelAnalyzer:
                 f"Error: {e}"
             )
 
-    # Detect architecture from state_dict key patterns.
     def _detect_architecture(self) -> str:
+        """Detect neural network architecture from weights"""
         keys = set(self.state_dict.keys())
 
         if 'lstm.weight_ih_l0' in keys or 'lstm.weight_hh_l0' in keys:
@@ -111,8 +114,8 @@ class ModelAnalyzer:
             f"Could not auto-detect architecture from keys: {sorted(keys)[:20]}"
         )
 
-    # Extract dimensions from weight tensor shapes.
     def _detect_params(self, arch: str) -> Dict[str, Any]:
+        """Extract model parameters from weights"""
         params: Dict[str, Any] = {}
         sd = self.state_dict
 
@@ -169,3 +172,4 @@ class ModelAnalyzer:
                 params['output_size'] = sd[last_linear].shape[0]
 
         return params
+

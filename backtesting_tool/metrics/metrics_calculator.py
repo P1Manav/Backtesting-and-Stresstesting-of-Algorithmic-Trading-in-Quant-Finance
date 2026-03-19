@@ -1,13 +1,16 @@
+"""Calculate portfolio performance metrics"""
 from typing import Dict, Any
 from .performance_metrics import PerformanceMetrics
 
 class MetricsCalculator:
+    """Calculate aggregated and per-stock metrics"""
 
     def __init__(self, initial_capital: float):
+        """Initialize metrics calculator"""
         self.initial_capital = initial_capital
 
-    # Calculate aggregate and per-stock performance metrics.
     def calculate(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate metrics from backtesting results"""
         tickers = results.get('tickers', ['STOCK'])
         n_stocks = len(tickers)
         trades = results.get('trades', [])
@@ -48,3 +51,4 @@ class MetricsCalculator:
                 }
 
         return all_metrics
+

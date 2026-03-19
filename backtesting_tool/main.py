@@ -1,3 +1,4 @@
+"""Backtesting tool main - loads model and dataset, runs backtest with statistical analysis"""
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from visualization import (BacktestVisualizer, ReportGenerator,
                           StatisticalVisualizer, RobustnessVisualizer)
 
 def print_banner():
+    """Display welcome banner"""
     print("""
 ==================================================================
 
@@ -30,8 +32,8 @@ def print_banner():
 ==================================================================
     """)
 
-# Let user choose a dataset category and file.
 def select_dataset() -> str:
+    """Select a dataset category and file"""
     dm = DatasetManager()
 
     print("\n" + "=" * 60)
@@ -69,8 +71,8 @@ def select_dataset() -> str:
             pass
         print(f"  Enter a number between 1 and {len(datasets)}")
 
-# Let user pick a .pt model from the models/ folder or enter a path.
 def select_model() -> str:
+    """Select a TorchScript .pt model"""
     models_dir = Path(__file__).parent / 'models'
     models = sorted(models_dir.glob("*.pt")) if models_dir.exists() else []
 
@@ -104,8 +106,8 @@ def select_model() -> str:
         print("  Convert .pth models using: torch.jit.trace() + torch.jit.save()")
         return input("  Enter full model path: ").strip()
 
-# Ask for backtesting parameters.
 def configure_backtest() -> BacktestConfig:
+    """Configure backtesting parameters"""
     print(f"\n{'=' * 60}")
     print("BACKTESTING PARAMETERS")
     print("=" * 60)
@@ -134,8 +136,8 @@ def configure_backtest() -> BacktestConfig:
         sequence_length=seq_len,
     )
 
-# Ask for statistical backtesting parameters.
 def configure_statistical_backtest() -> dict:
+    """Configure statistical backtesting parameters"""
     print(f"\n{'=' * 60}")
     print("STATISTICAL BACKTESTING PARAMETERS")
     print("=" * 60)
@@ -178,6 +180,7 @@ def configure_statistical_backtest() -> dict:
     }
 
 def main():
+    """Execute backtesting workflow"""
     print_banner()
 
     dataset_path = select_dataset()
@@ -278,3 +281,4 @@ if __name__ == "__main__":
         print(f"\n\n  [ERROR] {e}")
         import traceback
         traceback.print_exc()
+

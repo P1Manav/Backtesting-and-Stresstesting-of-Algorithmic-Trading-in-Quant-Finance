@@ -1,14 +1,17 @@
+"""Generate price predictions from model"""
 import torch
 import torch.nn as nn
 import numpy as np
 from typing import Optional, Tuple
 
 class InferenceValidator:
+    """Validate model inference outputs"""
 
     def __init__(self,
                  expected_output_dim: Optional[int] = None,
                  clamp_range: Optional[Tuple[float, float]] = (-10.0, 10.0),
                  strict: bool = False):
+        """Initialize validator"""
         self.expected_output_dim = expected_output_dim
         self.clamp_range = clamp_range
         self.strict = strict
@@ -20,8 +23,8 @@ class InferenceValidator:
         self.clamp_count = 0
         self.shape_errors = 0
 
-    # Validate and sanitise a single prediction output.
     def validate(self, output) -> np.ndarray:
+        """Validate prediction output"""
         if not isinstance(output, np.ndarray):
             try:
                 output = output.detach().cpu().numpy()
@@ -67,8 +70,8 @@ class InferenceValidator:
         self._last_valid = output.copy()
         return output
 
-    # Return validation diagnostics summary.
     def summary(self) -> dict:
+        """Return validation summary"""
         return {
             'total_predictions': self.total_predictions,
             'nan_detections': self.nan_count,
@@ -81,17 +84,19 @@ class InferenceValidator:
         }
 
 class PredictionController:
+    """Generate predictions using loaded model"""
 
     def __init__(self, model: nn.Module, device: torch.device,
                  validator: Optional[InferenceValidator] = None):
+        """Initialize prediction controller"""
         self.model = model
         self.device = device
         self.model.eval()
         self.validator = validator or InferenceValidator()
 
-    # Run forward pass on a numpy window and validate the output.
     @torch.no_grad()
     def predict(self, window: np.ndarray) -> np.ndarray:
+        """Make price prediction from input window"""
         x = torch.from_numpy(window).float().to(self.device)
         output = self.model(x)
         raw = output.cpu().numpy()
@@ -99,6 +104,7 @@ class PredictionController:
         validated = self.validator.validate(raw)
         return validated
 
-    # Return inference validation diagnostics.
     def get_validation_summary(self) -> dict:
+        """Return validation statistics"""
         return self.validator.summary()
+

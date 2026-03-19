@@ -1,9 +1,11 @@
+"""Module: statistical_tests.py"""
+
 import numpy as np
 from scipy import stats
 from typing import Dict, Any, Optional, Tuple, List
 
-# Compute Value-at-Risk for a returns series.
 def compute_var(returns: np.ndarray,
+    """compute_var implementation"""
                 confidence_level: float = 0.95,
                 method: str = 'historical',
                 window: Optional[int] = None) -> np.ndarray:
@@ -29,8 +31,8 @@ def compute_var(returns: np.ndarray,
 
     return var_series
 
-# Create a binary hit sequence: 1 if actual loss > VaR, else 0.
 def identify_violations(returns: np.ndarray,
+    """identify_violations implementation"""
                         var_series: np.ndarray) -> np.ndarray:
     hits = np.zeros(len(returns), dtype=int)
     valid = ~np.isnan(var_series)
@@ -38,16 +40,17 @@ def identify_violations(returns: np.ndarray,
     return hits
 
 class KupiecTest:
+    """KupiecTest: implementation"""
 
-    # Initialize the instance.
     def __init__(self, confidence_level: float = 0.95,
+    """Initialize instance"""
                  significance: float = 0.05):
         self.confidence_level = confidence_level
         self.p = 1 - confidence_level
         self.significance = significance
 
-    # Run the Kupiec POF test on a binary hit sequence.
     def test(self, hit_sequence: np.ndarray) -> Dict[str, Any]:
+    """test implementation"""
         T = len(hit_sequence)
         N = int(np.sum(hit_sequence))
         p = self.p
@@ -83,16 +86,18 @@ class KupiecTest:
         }
 
 class ChristoffersenTest:
+    """ChristoffersenTest: implementation"""
 
     def __init__(self, confidence_level: float = 0.95,
+    """Initialize instance"""
                  significance: float = 0.05):
         self.confidence_level = confidence_level
         self.p = 1 - confidence_level
         self.significance = significance
 
-    # Count transition pairs in the hit sequence.
     @staticmethod
     def _transition_counts(hit_sequence: np.ndarray) -> Tuple[int, int, int, int]:
+    """_transition_counts implementation"""
         n00 = n01 = n10 = n11 = 0
         for i in range(1, len(hit_sequence)):
             prev, curr = hit_sequence[i - 1], hit_sequence[i]
@@ -106,8 +111,8 @@ class ChristoffersenTest:
                 n11 += 1
         return n00, n01, n10, n11
 
-    # Independence component of the Christoffersen test.
     def _independence_test(self, hit_sequence: np.ndarray) -> Dict[str, Any]:
+    """_independence_test implementation"""
         n00, n01, n10, n11 = self._transition_counts(hit_sequence)
 
         pi_01 = n01 / (n00 + n01) if (n00 + n01) > 0 else 0.0
@@ -154,8 +159,8 @@ class ChristoffersenTest:
             'result': 'FAIL' if reject else 'PASS',
         }
 
-    # Run the full Christoffersen Conditional Coverage test.
     def test(self, hit_sequence: np.ndarray) -> Dict[str, Any]:
+    """test implementation"""
         kupiec = KupiecTest(self.confidence_level, self.significance)
         coverage = kupiec.test(hit_sequence)
 
@@ -183,12 +188,14 @@ class ChristoffersenTest:
         }
 
 class BenchmarkComparison:
+    """BenchmarkComparison: implementation"""
 
     def __init__(self, initial_capital: float = 100_000.0):
+    """Initialize instance"""
         self.initial_capital = initial_capital
 
-    # Compute buy-and-hold benchmark portfolio values.
     def compute_benchmark(self, results: Dict[str, Any]) -> np.ndarray:
+    """compute_benchmark implementation"""
         tickers = results.get('tickers', [])
         n_stocks = len(tickers)
         portfolio_values = np.array(results['portfolio_values'], dtype=float)
@@ -216,8 +223,8 @@ class BenchmarkComparison:
 
         return benchmark_values
 
-    # Run benchmark comparison analysis.
     def compare(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    """compare implementation"""
         portfolio_values = np.array(results['portfolio_values'], dtype=float)
         benchmark_values = self.compute_benchmark(results)
 
@@ -241,6 +248,7 @@ class BenchmarkComparison:
         bench_sharpe = float(np.mean(bench_returns) / np.std(bench_returns, ddof=1) * np.sqrt(252)) if np.std(bench_returns) > 0 else 0.0
 
         def _max_dd(values):
+    """_max_dd implementation"""
             cummax = np.maximum.accumulate(values)
             dd = (values - cummax) / cummax
             return float(np.min(dd) * 100)
@@ -296,8 +304,8 @@ class BenchmarkComparison:
         }
 
 class StatisticalBacktester:
+    """StatisticalBacktester: implementation"""
 
-    # Initialize the instance.
     def __init__(self,
                  confidence_levels: Optional[List[float]] = None,
                  significance: float = 0.05,
@@ -312,9 +320,9 @@ class StatisticalBacktester:
         self.var_window = var_window
         self.initial_capital = initial_capital
 
-    # Extract clean daily returns from portfolio value series.
     @staticmethod
     def _clean_returns(portfolio_values: np.ndarray) -> np.ndarray:
+    """_clean_returns implementation"""
         pv = np.array(portfolio_values, dtype=float)
 
         valid = np.isfinite(pv) & (pv > 0)
@@ -329,8 +337,8 @@ class StatisticalBacktester:
 
         return returns
 
-    # Run all statistical tests for a single confidence level.
     def _run_single_level(self, returns: np.ndarray,
+    """Execute main process"""
                           confidence_level: float) -> Dict[str, Any]:
         var_series = compute_var(
             returns,
@@ -389,8 +397,8 @@ class StatisticalBacktester:
             '_valid_mask': valid_mask,
         }
 
-    # Execute all statistical backtesting tests at every confidence level.
     def run(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute main process"""
         portfolio_values = np.array(results['portfolio_values'], dtype=float)
 
         returns = self._clean_returns(portfolio_values)
@@ -413,8 +421,8 @@ class StatisticalBacktester:
 
         return stat_results
 
-# Pretty-print the multi-level statistical backtesting report.
 def print_statistical_results(stat_results: Dict[str, Any]) -> None:
+    """print_statistical_results implementation"""
 
     confidence_levels = stat_results['confidence_levels']
     var_method = stat_results['var_method']
@@ -552,15 +560,17 @@ def print_statistical_results(stat_results: Dict[str, Any]) -> None:
         print(f"\n  >>> MODEL FAILS one or more statistical backtests <<<")
     print("=" * 70)
 
-# Print pass/fail inside a box-drawing frame.
 def _box_pass_fail(result: str) -> None:
+    """_box_pass_fail implementation"""
     if result == 'PASS':
         print(f"  │  {'Result':<30} ✓ PASS (Do not reject H₀)     │")
     else:
         print(f"  │  {'Result':<30} ✗ FAIL (Reject H₀)            │")
 
 def _pass_fail(result: str) -> None:
+    """_pass_fail implementation"""
     if result == 'PASS':
         print(f"  {'Result':<30} ✓ PASS (Do not reject H₀)")
     else:
         print(f"  {'Result':<30} ✗ FAIL (Reject H₀)")
+

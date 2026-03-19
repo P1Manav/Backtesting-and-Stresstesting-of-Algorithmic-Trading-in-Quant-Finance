@@ -1,16 +1,19 @@
+"""Execute trades and maintain trade log"""
 from typing import List, Optional, Dict, Any
 from .portfolio import Portfolio
 
 class TradeExecutor:
+    """Execute trading actions and track trades"""
 
     def __init__(self, portfolio: Portfolio, commission_rate: float):
+        """Initialize trade executor"""
         self.portfolio = portfolio
         self.commission_rate = commission_rate
         self.trade_log: List[Dict[str, Any]] = []
 
-    # Execute a BUY or SELL action for a specific stock.
     def execute(self, action: str, ticker: str, price: float,
                 date=None, budget: Optional[float] = None) -> None:
+        """Execute trading action (BUY/SELL)"""
         if action == 'BUY':
             msg = self.portfolio.buy(ticker, price, self.commission_rate, budget)
             if msg:
@@ -25,3 +28,4 @@ class TradeExecutor:
                     'date': date, 'ticker': ticker, 'action': 'SELL',
                     'price': price, 'description': msg,
                 })
+

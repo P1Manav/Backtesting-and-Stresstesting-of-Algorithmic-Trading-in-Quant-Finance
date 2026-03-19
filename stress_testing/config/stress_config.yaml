@@ -1,0 +1,68 @@
+# Stress Testing Configuration
+# This file defines all stress testing scenarios and their parameters
+
+stress_testing:
+  # Overall test configuration
+  initial_capital: 100000.0
+  commission_pct: 0.1
+  sequence_length: 60
+  random_seed: 42
+
+  # Number of times to run each scenario (for synthetic/bootstrap scenarios)
+  num_runs: 5
+
+  # Baseline configuration
+  baseline:
+    enabled: true
+    description: "Baseline backtest on original, unstressed data"
+
+  # Scenario configurations
+  scenarios:
+    # Market Crash Scenarios
+    market_crash:
+      enabled: true
+      description: "Simulate sudden price drops"
+      crash_levels: [0.10, 0.20, 0.30, 0.50]  # 10%, 20%, 30%, 50% drops
+      shock_days: 5  # Number of days for crash to occur
+      recovery_days: 20  # Days to recovery
+
+    # Volatility Shock Scenarios
+    volatility_shock:
+      enabled: true
+      description: "Amplify market volatility"
+      volatility_factors: [2.0, 3.0, 5.0]  # 2x, 3x, 5x volatility
+      shock_duration: 30  # Sustained for N days
+      normalization_window: 20  # Days to revert to normal
+
+    # Regime Shift Scenarios
+    regime_shift:
+      enabled: true
+      description: "Simulate change in market conditions"
+      regime_types: ["bearish", "low_volume", "trend_reversal"]
+      duration: 30  # Days the regime lasts
+      drift_change: -0.001  # Negative drift for bearish
+      variance_factor: 1.5  # Increased variance
+
+    # Synthetic Stress Scenario
+    synthetic_stress:
+      enabled: true
+      description: "Generate artificial stressed markets"
+      methods: ["bootstrap", "gbm", "random_shock"]
+      num_scenarios: 10  # Number of synthetc scenarios to generate
+      shock_magnitude: 0.15  # 15% random shocks
+      gbm_drift: -0.001
+      gbm_volatility: 0.03
+
+  # Performance evaluation thresholds
+  evaluation:
+    acceptable_return_drop: 0.15  # Tolerate 15% return drop
+    acceptable_sharpe_drop: 0.5   # Tolerate 0.5 Sharpe drop
+    acceptable_drawdown_increase: 0.10  # Tolerate 10% more drawdown
+    resilience_threshold: 0.70  # Strategy resilient if >70% of scenarios profitable
+
+  # Output settings
+  output:
+    save_detailed_results: true
+    generate_plots: true
+    plot_format: "png"  # pdf, png, svg
+    report_format: "html"  # html, pdf

@@ -1,16 +1,20 @@
+"""Generate HTML reports"""
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 class ReportGenerator:
+    """Generate report"""
 
     def __init__(self, save_dir: str):
+    """Initialize instance"""
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save portfolio history, trades, metrics, statistical and robustness results.
     def save(self, results: Dict[str, Any], metrics: Dict[str, Any],
+    """Save data or model"""
              stat_results: Optional[Dict[str, Any]] = None,
              robustness_results: Optional[Dict[str, Any]] = None) -> None:
         tickers = results.get('tickers', ['STOCK'])
@@ -55,8 +59,8 @@ class ReportGenerator:
 
         print(f"  [OK] CSV reports saved to: {self.save_dir}")
 
-    # Save multi-level statistical backtesting results to CSVs.
     def _save_statistical_results(self, stat_results: Dict[str, Any]) -> None:
+    """Save data or model"""
         confidence_levels = stat_results.get('confidence_levels', [])
         levels = stat_results.get('levels', {})
 
@@ -124,8 +128,8 @@ class ReportGenerator:
 
             var_df.to_csv(self.save_dir / 'var_violations.csv', index=False)
 
-    # Save Walk-Forward, Bootstrap, and Monte Carlo results to CSV.
     def _save_robustness_results(self, rob: Dict[str, Any]) -> None:
+    """Save data or model"""
         rows = []
 
         wf = rob.get('walk_forward', {})
@@ -168,3 +172,4 @@ class ReportGenerator:
 
         pd.DataFrame(rows).to_csv(
             self.save_dir / 'robustness_results.csv', index=False)
+

@@ -1,3 +1,5 @@
+"""Module: __init__.py"""
+
 from .performance_metrics import PerformanceMetrics
 from .metrics_calculator import MetricsCalculator
 from .statistical_tests import (
@@ -16,3 +18,4 @@ __all__ = [
     'RobustnessAnalyzer', 'WalkForwardAnalyzer', 'BootstrapResampler',
     'MonteCarloSimulator', 'print_robustness_results',
 ]
+

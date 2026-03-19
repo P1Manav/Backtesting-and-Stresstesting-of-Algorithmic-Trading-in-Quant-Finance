@@ -1,3 +1,5 @@
+"""Module: robustness_visualizer.py"""
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -9,8 +11,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 class RobustnessVisualizer:
+    """RobustnessVisualizer: implementation"""
 
     def __init__(self, save_dir: str):
+    """Initialize instance"""
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -21,8 +25,8 @@ class RobustnessVisualizer:
             except Exception:
                 pass
 
-    # Generate all robustness validation charts.
     def generate_all(self, robustness_results: Dict[str, Any]) -> None:
+    """Generate output"""
         wf = robustness_results.get('walk_forward', {})
         bs = robustness_results.get('bootstrap', {})
         mc = robustness_results.get('monte_carlo', {})
@@ -37,8 +41,8 @@ class RobustnessVisualizer:
 
         print(f"  [OK] Robustness charts saved to: {self.save_dir}")
 
-    # Bar chart of OOS Sharpe, Return, and Max Drawdown per fold.
     def _plot_walk_forward(self, wf: Dict[str, Any]):
+    """Generate plots"""
         folds = wf['fold_results']
         agg = wf['aggregate']
         n = len(folds)
@@ -108,8 +112,8 @@ class RobustnessVisualizer:
                     bbox_inches='tight')
         plt.close(fig)
 
-    # Horizontal CI bars with observed values for bootstrap metrics.
     def _plot_bootstrap(self, bs: Dict[str, Any]):
+    """Generate plots"""
         metrics = [
             ('Sharpe Ratio', bs['sharpe_ratio']),
             ('Total Return (%)', bs['total_return_pct']),
@@ -162,8 +166,8 @@ class RobustnessVisualizer:
                     bbox_inches='tight')
         plt.close(fig)
 
-    # Histogram of null Sharpe distribution with observed marker.
     def _plot_monte_carlo(self, mc: Dict[str, Any]):
+    """Generate plots"""
         ns = mc['null_sharpe']
         nr = mc['null_return_pct']
 
@@ -240,8 +244,8 @@ class RobustnessVisualizer:
                     bbox_inches='tight')
         plt.close(fig)
 
-    # Single-page dashboard summarising all three robustness tests.
     def _plot_robustness_summary(self, rob: Dict[str, Any]):
+    """Generate plots"""
         wf = rob.get('walk_forward', {})
         bs = rob.get('bootstrap', {})
         mc = rob.get('monte_carlo', {})
@@ -307,6 +311,7 @@ class RobustnessVisualizer:
 
     @staticmethod
     def _wf_details(wf: Dict[str, Any]) -> list:
+    """_wf_details implementation"""
         if not wf.get('aggregate'):
             return ['Insufficient data']
         a = wf['aggregate']
@@ -320,6 +325,7 @@ class RobustnessVisualizer:
 
     @staticmethod
     def _bs_details(bs: Dict[str, Any]) -> list:
+    """_bs_details implementation"""
         if 'sharpe_ratio' not in bs:
             return ['Insufficient data']
         sr = bs['sharpe_ratio']
@@ -334,6 +340,7 @@ class RobustnessVisualizer:
 
     @staticmethod
     def _mc_details(mc: Dict[str, Any]) -> list:
+    """_mc_details implementation"""
         if 'null_sharpe' not in mc:
             return ['Insufficient data']
         return [
@@ -343,3 +350,4 @@ class RobustnessVisualizer:
             f"p-value (Return): {mc.get('p_value_return', 1):.4f}",
             f"Null Sharpe μ: {mc['null_sharpe'].get('mean', 0):.4f}",
         ]
+

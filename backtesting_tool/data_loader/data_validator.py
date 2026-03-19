@@ -1,16 +1,19 @@
+"""Validate dataset integrity and format"""
 import pandas as pd
 from typing import List
 
 class DataValidator:
+    """Validate OHLCV dataset format and values"""
 
     REQUIRED_COLUMNS = ['Open', 'High', 'Low', 'Close', 'Volume']
     PRICE_COLUMNS = ['Open', 'High', 'Low', 'Close']
 
     def __init__(self):
+        """Initialize validator"""
         self.warnings: List[str] = []
 
-    # Validate DataFrame has required OHLCV columns and reasonable values.
     def validate(self, df: pd.DataFrame) -> bool:
+        """Validate dataset and return validation result"""
         self.warnings = []
 
         missing = [c for c in self.REQUIRED_COLUMNS if c not in df.columns]
@@ -38,3 +41,4 @@ class DataValidator:
             print(f"  [WARNING] {w}")
 
         return True
+

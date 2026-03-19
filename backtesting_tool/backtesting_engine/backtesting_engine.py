@@ -1,3 +1,5 @@
+"""Core backtesting engine for trading simulations"""
+
 import pandas as pd
 from typing import Dict, List, Any
 
@@ -9,8 +11,10 @@ from model_interface.feature_converter import FeatureConverter
 from model_interface.action_mapper import ActionMapper
 
 class BacktestingEngine:
+    """BacktestingEngine: implementation"""
 
     def __init__(self, config: BacktestConfig,
+    """Initialize instance"""
                  predictor: PredictionController,
                  feature_columns: List[str],
                  action_mapper: ActionMapper):
@@ -19,8 +23,8 @@ class BacktestingEngine:
         self.feature_columns = feature_columns
         self.mapper = action_mapper
 
-    # Run backtest over one or more stocks.
     def run(self, stock_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+    """Execute main process"""
         tickers = list(stock_data.keys())
         seq_len = self.config.sequence_length
 
@@ -170,3 +174,4 @@ class BacktestingEngine:
             print(f"    {'Cash':10s}: {'':6s}        = ${portfolio.cash:>12,.2f}")
 
         return results
+

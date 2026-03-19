@@ -1,27 +1,30 @@
+"""Load and manage stock market datasets"""
 import pandas as pd
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from .data_validator import DataValidator
 
 class DatasetManager:
+    """Manage loading and selecting datasets"""
 
     def __init__(self, data_root: Optional[str] = None):
+        """Initialize dataset manager"""
         if data_root is None:
             self.data_root = Path(__file__).parent.parent / "data_repository"
         else:
             self.data_root = Path(data_root)
         self.validator = DataValidator()
 
-    # List available dataset categories.
     def list_categories(self) -> List[str]:
+        """List dataset categories"""
         categories = []
         for d in sorted(self.data_root.iterdir()):
             if d.is_dir():
                 categories.append(d.name)
         return categories
 
-    # List CSV datasets in a given category folder.
     def list_datasets(self, category: str) -> List[Dict[str, Any]]:
+        """List datasets in category"""
         category_path = self.data_root / category
         if not category_path.exists():
             return []
@@ -37,8 +40,8 @@ class DatasetManager:
             })
         return datasets
 
-    # Load a CSV dataset and return ``{ticker: DataFrame}``.
     def load_dataset(self, path: str) -> Dict[str, pd.DataFrame]:
+        """Load dataset from CSV file"""
         print(f"\n  Loading: {Path(path).name}")
         df = pd.read_csv(path)
 
@@ -159,3 +162,4 @@ class DatasetManager:
         self.validator.validate(df)
         print(f"  [OK] {len(df)} rows  |  {df.index[0]} -> {df.index[-1]}")
         return {'STOCK': df}
+

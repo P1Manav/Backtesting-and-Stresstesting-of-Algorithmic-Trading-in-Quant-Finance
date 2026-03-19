@@ -1,3 +1,5 @@
+"""Generate backtesting visualizations"""
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -9,8 +11,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 class BacktestVisualizer:
+    """BacktestVisualizer: implementation"""
 
     def __init__(self, save_dir: str):
+    """Initialize instance"""
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -22,8 +26,8 @@ class BacktestVisualizer:
             except Exception:
                 pass
 
-    # Generate and save all charts.
     def generate_all(self, results: Dict[str, Any]) -> None:
+    """Generate output"""
         self._plot_equity_curve(results)
         self._plot_predictions(results)
         self._plot_drawdown(results)
@@ -36,6 +40,7 @@ class BacktestVisualizer:
         print(f"\n  [OK] Charts saved to: {self.save_dir}")
 
     def _plot_equity_curve(self, results: Dict[str, Any]):
+    """Generate plots"""
         dates = pd.to_datetime(results['dates'])
         values = results['portfolio_values']
 
@@ -53,6 +58,7 @@ class BacktestVisualizer:
         plt.close(fig)
 
     def _plot_predictions(self, results: Dict[str, Any]):
+    """Make predictions"""
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])
         n = len(tickers)
@@ -104,6 +110,7 @@ class BacktestVisualizer:
             plt.close(fig)
 
     def _plot_drawdown(self, results: Dict[str, Any]):
+    """Generate plots"""
         dates = pd.to_datetime(results['dates'])
         pv = np.array(results['portfolio_values'])
         cummax = np.maximum.accumulate(pv)
@@ -121,6 +128,7 @@ class BacktestVisualizer:
         plt.close(fig)
 
     def _plot_allocation(self, results: Dict[str, Any]):
+    """Generate plots"""
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])
         n = len(dates)
@@ -163,6 +171,7 @@ class BacktestVisualizer:
         plt.close(fig)
 
     def _plot_normalized_prices(self, results: Dict[str, Any]):
+    """Generate plots"""
         tickers = results.get('tickers', [])
         dates = pd.to_datetime(results['dates'])
 
@@ -183,3 +192,4 @@ class BacktestVisualizer:
         fig.savefig(self.save_dir / 'price_performance.png', dpi=300,
                     bbox_inches='tight')
         plt.close(fig)
+

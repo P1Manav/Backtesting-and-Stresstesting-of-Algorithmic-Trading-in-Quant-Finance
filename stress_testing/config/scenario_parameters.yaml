@@ -1,0 +1,95 @@
+# Detailed scenario parameter specifications
+# These override/extend the main stress_config.yaml for specific scenarios
+
+# Market Crash Parameters
+market_crash_profiles:
+  mild_crash:
+    description: "10% market correction"
+    crash_percentage: 0.10
+    shock_days: 3
+    recovery_days: 10
+    affected_volume_change: 1.5  # 50% volume increase during crash
+
+  moderate_crash:
+    description: "20% market correction"
+    crash_percentage: 0.20
+    shock_days: 5
+    recovery_days: 20
+    affected_volume_change: 2.0
+
+  severe_crash:
+    description: "30% bear market start"
+    crash_percentage: 0.30
+    shock_days: 10
+    recovery_days: 60
+    affected_volume_change: 3.0
+
+  extreme_crash:
+    description: "50% flash crash / market panic"
+    crash_percentage: 0.50
+    shock_days: 1
+    recovery_days: 120
+    affected_volume_change: 5.0
+
+# Volatility Shock Parameters
+volatility_profiles:
+  moderate_vol_shock:
+    description: "2x volatility spike"
+    volatility_factor: 2.0
+    duration: 20
+    revert_duration: 10
+
+  high_vol_shock:
+    description: "3x volatility spike"
+    volatility_factor: 3.0
+    duration: 30
+    revert_duration: 15
+
+  extreme_vol_shock:
+    description: "5x volatility spike"
+    volatility_factor: 5.0
+    duration: 45
+    revert_duration: 30
+
+# Regime Shift Parameters
+regime_profiles:
+  bearish_market:
+    description: "Sustained downtrend with low returns"
+    duration: 60
+    drift: -0.001  # Negative daily drift
+    volatility_factor: 1.5
+
+  low_liquidity:
+    description: "Volume dries up, wider spreads"
+    duration: 30
+    volume_factor: 0.3  # 70% volume reduction
+    spread_factor: 2.0  # Wider bid-ask spreads
+
+  trend_reversal:
+    description: "Uptrend reverses to downtrend"
+    duration: 45
+    drift_change: -0.002  # Shift from positive to negative
+    volatility_factor: 1.3
+
+# Synthetic Stress Parameters
+synthetic_profiles:
+  bootstrap_stress:
+    description: "Resample historical returns with different ordering"
+    method: "bootstrap"
+    sample_size: 100
+    num_scenarios: 20
+
+  gbm_stress:
+    description: "Geometric Brownian Motion with stressed parameters"
+    method: "gbm"
+    num_paths: 100
+    drift: -0.001
+    volatility: 0.03
+    dt: 0.00397  # 1 trading day
+
+  shock_injection:
+    description: "Random shock injection into returns"
+    method: "random_shock"
+    shock_probability: 0.05  # 5% chance of shock per day
+    shock_magnitude: 0.15  # 15% random shocks
+    num_scenarios: 50

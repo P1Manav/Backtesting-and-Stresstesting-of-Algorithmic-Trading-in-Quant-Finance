@@ -1,14 +1,18 @@
+"""Module: robustness_tests.py"""
+
 import numpy as np
 from typing import Dict, Any, List, Optional
 
 class WalkForwardAnalyzer:
+    """WalkForwardAnalyzer: implementation"""
 
     def __init__(self, n_folds: int = 5, train_ratio: float = 0.7):
+    """Initialize instance"""
         self.n_folds = max(2, n_folds)
         self.train_ratio = train_ratio
 
-    # Run walk-forward analysis.
     def analyze(self, portfolio_values: np.ndarray,
+    """analyze implementation"""
                 initial_capital: float) -> Dict[str, Any]:
         pv = np.array(portfolio_values, dtype=float)
         n = len(pv)
@@ -70,30 +74,35 @@ class WalkForwardAnalyzer:
 
     @staticmethod
     def _sharpe(r, td=252):
+    """_sharpe implementation"""
         s = float(np.std(r))
         return float(np.mean(r) / s * np.sqrt(td)) if s > 0 else 0.0
 
     @staticmethod
     def _mdd(pv):
+    """_mdd implementation"""
         cm = np.maximum.accumulate(pv)
         return float(np.min((pv - cm) / cm) * 100)
 
     @staticmethod
     def _insufficient():
+    """_insufficient implementation"""
         return {'fold_results': [], 'aggregate': {},
                 'consistency_ratio': 0.0, 'result': 'INSUFFICIENT DATA'}
 
 class BootstrapResampler:
+    """BootstrapResampler: implementation"""
 
     def __init__(self, n_bootstrap: int = 1000,
+    """Initialize instance"""
                  confidence_level: float = 0.95,
                  random_seed: Optional[int] = 42):
         self.n_bootstrap = n_bootstrap
         self.confidence_level = confidence_level
         self.rng = np.random.default_rng(random_seed)
 
-    # Run bootstrap resampling analysis.
     def resample(self, portfolio_values: np.ndarray,
+    """resample implementation"""
                  initial_capital: float) -> Dict[str, Any]:
         pv = np.array(portfolio_values, dtype=float)
         returns = np.diff(pv) / pv[:-1]
@@ -127,6 +136,7 @@ class BootstrapResampler:
         obs_d = float(np.min((pv - cm) / cm) * 100)
 
         def _ci(dist, obs):
+    """_ci implementation"""
             return {
                 'observed': round(obs, 4),
                 'mean': round(float(np.mean(dist)), 4),
@@ -145,14 +155,16 @@ class BootstrapResampler:
         }
 
 class MonteCarloSimulator:
+    """MonteCarloSimulator: implementation"""
 
     def __init__(self, n_simulations: int = 1000,
+    """Initialize instance"""
                  random_seed: Optional[int] = 42):
         self.n_simulations = n_simulations
         self.rng = np.random.default_rng(random_seed)
 
-    # Run Monte Carlo permutation test.
     def simulate(self, portfolio_values: np.ndarray,
+    """simulate implementation"""
                  initial_capital: float) -> Dict[str, Any]:
         pv = np.array(portfolio_values, dtype=float)
         returns = np.diff(pv) / pv[:-1]
@@ -200,8 +212,10 @@ class MonteCarloSimulator:
         }
 
 class RobustnessAnalyzer:
+    """RobustnessAnalyzer: implementation"""
 
     def __init__(self, n_folds: int = 5, n_bootstrap: int = 1000,
+    """Initialize instance"""
                  n_simulations: int = 1000,
                  random_seed: Optional[int] = 42):
         self.wf = WalkForwardAnalyzer(n_folds=n_folds)
@@ -210,8 +224,8 @@ class RobustnessAnalyzer:
         self.mc = MonteCarloSimulator(n_simulations=n_simulations,
                                       random_seed=random_seed)
 
-    # Execute all robustness tests on backtest results.
     def run(self, results: Dict[str, Any],
+    """Execute main process"""
             initial_capital: float) -> Dict[str, Any]:
         pv = np.array(results['portfolio_values'], dtype=float)
 
@@ -243,8 +257,8 @@ class RobustnessAnalyzer:
             'overall_verdict': overall,
         }
 
-# Pretty-print robustness analysis results (W1).
 def print_robustness_results(rob: Dict[str, Any]) -> None:
+    """print_robustness_results implementation"""
     print(f"\n{'=' * 70}")
     print("  ROBUSTNESS VALIDATION (Walk-Forward / Bootstrap / Monte Carlo)")
     print(f"{'=' * 70}")
@@ -305,3 +319,4 @@ def print_robustness_results(rob: Dict[str, Any]) -> None:
     print(f"{'=' * 70}")
     print(f"  {rob['overall_verdict']}")
     print(f"{'=' * 70}")
+
